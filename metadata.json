@@ -1,0 +1,6 @@
+{
+  "name": "OtoMatik",
+  "description": "Türkiye genelindeki otoyol, köprü ve tünel geçiş ücretlerini rotanıza göre otomatik hesaplayan, araç sınıfına göre tarife çıkaran ve akıllı yol yardımı sunan gelişmiş rota planlama uygulaması.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
