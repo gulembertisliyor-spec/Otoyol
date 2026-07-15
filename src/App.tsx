@@ -24,7 +24,10 @@ import {
   FileText,
   History,
   Trash2,
-  Bookmark
+  Bookmark,
+  Calendar,
+  Gift,
+  Percent
 } from "lucide-react";
 import { VEHICLE_CLASSES, VEHICLE_CLASSES as vehicleClasses } from "./tollData";
 
@@ -149,6 +152,8 @@ export default function App() {
       return [];
     }
   });
+
+  const [activeFreeTab, setActiveFreeTab] = useState<"days" | "free-roads" | "paid-roads">("days");
 
   // Track if current route was loaded from history
   const isLoadedFromHistoryRef = useRef<boolean>(false);
@@ -620,6 +625,74 @@ export default function App() {
     return Math.round(litersNeeded * fuelPrice);
   };
 
+  // Tax calculations helper (VAT/KDV + Special Consumption Tax/ÖTV)
+  const getTaxCalculations = () => {
+    if (!result) {
+      return {
+        tollKdv: 0,
+        fuelOtv: 0,
+        fuelKdv: 0,
+        totalFuelTax: 0,
+        totalTax: 0,
+        fuelTaxPercent: 0,
+        tollTaxPercent: 0,
+        totalTaxPercent: 0,
+        tollNet: 0,
+        fuelNet: 0,
+        totalNet: 0
+      };
+    }
+    
+    // Toll standard VAT (KDV) in Turkey is 20%
+    const tollKdv = result.totalToll * (0.20 / 1.20);
+    const tollNet = result.totalToll - tollKdv;
+    
+    // Fuel tax calculation
+    const fuelCost = getFuelCost();
+    const litersNeeded = (result.totalDistanceKm / 100) * avgFuelConsumption;
+    
+    let fuelOtv = 0;
+    let fuelKdv = 0;
+    const isElectric = !!ENGINE_OPTIONS.find(e => e.id === vehicleEngine)?.isElectric;
+    
+    if (isElectric) {
+      // 20% KDV + 5% Other energy taxes/shares
+      fuelKdv = fuelCost * (0.20 / 1.20);
+      fuelOtv = fuelCost * 0.05;
+    } else {
+      // Benzin/Hybrid/Büyük Motor: 11.29 TL/L, Dizel: 10.59 TL/L fixed ÖTV
+      const otvRate = vehicleEngine.includes("dizel") ? 10.59 : 11.29;
+      // Cap ÖTV to not exceed 40% of total fuel cost to be safe with user custom values
+      fuelOtv = Math.min(litersNeeded * otvRate, fuelCost * 0.40);
+      fuelKdv = fuelCost * (0.20 / 1.20);
+    }
+    
+    const totalFuelTax = fuelOtv + fuelKdv;
+    const fuelNet = fuelCost - totalFuelTax;
+    
+    const totalTax = tollKdv + totalFuelTax;
+    const totalTripCost = result.totalToll + fuelCost;
+    const totalNet = tollNet + fuelNet;
+    
+    const fuelTaxPercent = fuelCost > 0 ? (totalFuelTax / fuelCost) * 100 : 0;
+    const tollTaxPercent = result.totalToll > 0 ? (tollKdv / result.totalToll) * 100 : 0;
+    const totalTaxPercent = totalTripCost > 0 ? (totalTax / totalTripCost) * 100 : 0;
+    
+    return {
+      tollKdv,
+      fuelOtv,
+      fuelKdv,
+      totalFuelTax,
+      totalTax,
+      fuelTaxPercent,
+      tollTaxPercent,
+      totalTaxPercent,
+      tollNet,
+      fuelNet,
+      totalNet
+    };
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-orange-500/30 selection:text-orange-200">
       
@@ -639,9 +712,9 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs bg-white/5 border border-white/10 hover:bg-white/10 transition-colors py-1.5 px-3 rounded-full text-zinc-400 font-semibold cursor-pointer">
-            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.6)]"></div>
-            KGM 2026 Aktif Veri Seti
+          <div className="flex items-center gap-2 text-xs bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors py-1.5 px-3 rounded-full text-red-400 font-semibold cursor-pointer">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+            SHELL BOYKOT
           </div>
         </div>
       </header>
@@ -1052,6 +1125,187 @@ export default function App() {
             )}
           </section>
 
+          {/* Special Free Days Guide Section */}
+          <section className="bg-[#121212] rounded-2xl p-5 border border-white/5 flex flex-col gap-4">
+            <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+              <h2 className="font-semibold text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
+                <Calendar className="w-4 h-4 text-orange-500" />
+                Özel Günler & Bayram Geçiş Rehberi
+              </h2>
+              <p className="text-[10px] text-zinc-500">
+                Türkiye genelinde bayramlarda ve özel günlerde uygulanan ücretsiz geçiş kuralları
+              </p>
+            </div>
+
+            {/* Tabs */}
+            <div className="grid grid-cols-3 gap-1 bg-[#1a1a1a] p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveFreeTab("days")}
+                className={`text-[10px] sm:text-xs py-1.5 px-2 rounded-lg font-bold transition-all ${
+                  activeFreeTab === "days"
+                    ? "bg-orange-500 text-black shadow-lg"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                }`}
+              >
+                Hangi Günler?
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFreeTab("free-roads")}
+                className={`text-[10px] sm:text-xs py-1.5 px-2 rounded-lg font-bold transition-all ${
+                  activeFreeTab === "free-roads"
+                    ? "bg-orange-500 text-black shadow-lg"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                }`}
+              >
+                Ücretsiz Yollar
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveFreeTab("paid-roads")}
+                className={`text-[10px] sm:text-xs py-1.5 px-2 rounded-lg font-bold transition-all ${
+                  activeFreeTab === "paid-roads"
+                    ? "bg-orange-500 text-black shadow-lg"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5"
+                }`}
+              >
+                Ücretli Kalanlar
+              </button>
+            </div>
+
+            {/* Tab content */}
+            <div className="text-xs text-zinc-300 leading-relaxed space-y-3">
+              {activeFreeTab === "days" && (
+                <div className="space-y-3.5">
+                  <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 flex gap-2.5">
+                    <Gift className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-zinc-200 text-xs">Dini Bayramlar (Tamamen Ücretsiz)</h4>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        **Ramazan Bayramı** ve **Kurban Bayramı** süresince (genellikle resmi tatil günleri boyunca) KGM bünyesindeki tüm köprü ve otoyollar ücretsizdir.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 flex gap-2.5">
+                    <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-zinc-200 text-xs">Resmi Tatiller & Milli Günler</h4>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        **29 Ekim, 30 Ağustos, 15 Temmuz, 19 Mayıs, 23 Nisan, 1 Mayıs** ve **1 Ocak** günlerinde belediye toplu taşımaları ve şehir içi raylı sistemler (Marmaray, Başkentray, İZBAN vb.) Cumhurbaşkanı Kararı ile ücretsiz olur ancak otoyol geçişleri bu kapsama her zaman dahil edilmeyebilir.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-2.5 bg-orange-500/5 border border-orange-500/10 rounded-xl text-[10px] text-orange-400/90 font-medium">
+                    ⚠️ <b>Önemli:</b> Ücretsiz geçiş uygulamalarının kesin başlangıç ve bitiş saatleri her bayram öncesinde Resmi Gazete\'de yayımlanan Cumhurbaşkanı Kararı ile resmiyet kazanır.
+                  </div>
+                </div>
+              )}
+
+              {activeFreeTab === "free-roads" && (
+                <div className="space-y-3">
+                  <p className="text-[11px] text-zinc-400">
+                    Dini bayramlarda geçişi ücretsiz olan, **KGM (Karayolları Genel Müdürlüğü)** tarafından işletilen devlet yolları:
+                  </p>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">15 Temmuz Şehitler Köprüsü</span>
+                        <span className="text-[9px] text-zinc-500">KGM İşletmesinde - İstanbul</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 py-1 px-2 rounded-full">Bayramda Bedava</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Fatih Sultan Mehmet Köprüsü</span>
+                        <span className="text-[9px] text-zinc-500">KGM İşletmesinde - İstanbul</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 py-1 px-2 rounded-full">Bayramda Bedava</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">KGM Otoyolları (Anadolu, Avrupa vb.)</span>
+                        <span className="text-[9px] text-zinc-500">Tüm KGM devlet otoyolları (O-3, O-4 vb.)</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 py-1 px-2 rounded-full">Bayramda Bedava</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeFreeTab === "paid-roads" && (
+                <div className="space-y-3">
+                  <p className="text-[11px] text-zinc-400">
+                    Özel şirketler tarafından işletilen **YİD (Yap-İşlet-Devret)** projeleri bayramlarda ve resmi tatillerde **ÜCRETSİZ DEĞİLDİR**. Bu geçişlerde tarife aynen uygulanır:
+                  </p>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Osmangazi Köprüsü</span>
+                        <span className="text-[9px] text-zinc-500">Otoyol Yatırım A.Ş.</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Yavuz Sultan Selim Köprüsü</span>
+                        <span className="text-[9px] text-zinc-500">ICA Yatırım</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">1915 Çanakkale Köprüsü</span>
+                        <span className="text-[9px] text-zinc-500">ÇOK A.Ş.</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Avrasya Tüneli</span>
+                        <span className="text-[9px] text-zinc-500">ATAŞ A.Ş.</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Gebze-İzmir Otoyolu (O-5)</span>
+                        <span className="text-[9px] text-zinc-500">Otoyol Yatırım A.Ş.</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Ankara-Niğde Otoyolu (O-21)</span>
+                        <span className="text-[9px] text-zinc-500">ERG Otoyol A.Ş.</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-2.5 bg-[#1a1a1a] rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-zinc-200 text-xs">Kuzey Marmara Otoyolu</span>
+                        <span className="text-[9px] text-zinc-500">KMO İşletmesi</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-400/10 py-1 px-2 rounded-full">Her Zaman Ücretli</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* Section 2: Core Cost Breakdown (Only shown if results available) */}
           {result && (
             <div className="flex flex-col gap-6">
@@ -1117,6 +1371,157 @@ export default function App() {
                   </div>
                 )}
               </section>
+
+              {/* Tax & Public Share Analysis Card */}
+              {(() => {
+                const taxes = getTaxCalculations();
+                const totalCost = result.totalToll + getFuelCost();
+                const isElectric = !!ENGINE_OPTIONS.find(e => e.id === vehicleEngine)?.isElectric;
+                
+                return (
+                  <section className="bg-[#121212] rounded-2xl p-5 border border-white/5 flex flex-col gap-4">
+                    <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+                      <h3 className="font-semibold text-zinc-100 flex items-center gap-2 text-xs uppercase tracking-wider">
+                        <Percent className="w-4 h-4 text-orange-500" />
+                        Vergi ve Kamu Payı Analizi
+                      </h3>
+                      <p className="text-[10px] text-zinc-500">
+                        Bu yolculuktaki toplam maliyetinizin vergi (KDV, ÖTV) ve kamu payı dağılımı
+                      </p>
+                    </div>
+
+                    <div className="bg-[#1a1a1a] p-4 rounded-xl border border-white/5 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-400">Toplam Ödenen Vergi:</span>
+                        <span className="text-sm font-bold font-mono text-orange-500">
+                          {taxes.totalTax.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-400">Maliyet İçindeki Vergi Oranı:</span>
+                        <span className="font-bold text-zinc-200">
+                          %{taxes.totalTaxPercent.toFixed(1)}
+                        </span>
+                      </div>
+
+                      {/* Visual segmented progress bar */}
+                      {totalCost > 0 && (
+                        <div className="space-y-1.5 mt-1">
+                          <div className="h-3 w-full bg-zinc-800 rounded-full flex overflow-hidden">
+                            {/* Net cost */}
+                            <div 
+                              style={{ width: `${(taxes.totalNet / totalCost) * 100}%` }} 
+                              className="bg-zinc-600 h-full transition-all duration-500"
+                              title={`Net Maliyet: %${((taxes.totalNet / totalCost) * 100).toFixed(1)}`}
+                            />
+                            {/* Toll KDV */}
+                            {result.totalToll > 0 && (
+                              <div 
+                                style={{ width: `${(taxes.tollKdv / totalCost) * 100}%` }} 
+                                className="bg-cyan-500 h-full transition-all duration-500"
+                                title={`Otoyol KDV (%20): %${((taxes.tollKdv / totalCost) * 100).toFixed(1)}`}
+                              />
+                            )}
+                            {/* Fuel KDV */}
+                            {getFuelCost() > 0 && (
+                              <div 
+                                style={{ width: `${(taxes.fuelKdv / totalCost) * 100}%` }} 
+                                className="bg-orange-500 h-full transition-all duration-500"
+                                title={`Akaryakıt KDV (%20): %${((taxes.fuelKdv / totalCost) * 100).toFixed(1)}`}
+                              />
+                            )}
+                            {/* Fuel ÖTV / Energy taxes */}
+                            {getFuelCost() > 0 && (
+                              <div 
+                                style={{ width: `${(taxes.fuelOtv / totalCost) * 100}%` }} 
+                                className="bg-red-500 h-full transition-all duration-500"
+                                title={`${isElectric ? 'Enerji Fonu/BTV (%5)' : 'Akaryakıt ÖTV (Sabit)'}: %${((taxes.fuelOtv / totalCost) * 100).toFixed(1)}`}
+                              />
+                            )}
+                          </div>
+                          
+                          {/* Legend / Açıklamalar */}
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] text-zinc-400 pt-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-zinc-600 block shrink-0" />
+                              <span>Net Rota Maliyeti: <b className="text-zinc-200 font-mono">{taxes.totalNet.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</b></span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-cyan-500 block shrink-0" />
+                              <span>Otoyol KDV (%20): <b className="text-zinc-200 font-mono">{taxes.tollKdv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</b></span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-orange-500 block shrink-0" />
+                              <span>Akaryakıt KDV (%20): <b className="text-zinc-200 font-mono">{taxes.fuelKdv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</b></span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-sm bg-red-500 block shrink-0" />
+                              <span>{isElectric ? 'Enerji Fonu (%5)' : 'Akaryakıt ÖTV (Sabit)'}: <b className="text-zinc-200 font-mono">{taxes.fuelOtv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</b></span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Detailed Cards for Toll and Fuel tax splits */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {/* Toll Tax Details */}
+                      <div className="p-3 bg-[#1a1a1a]/40 rounded-xl border border-white/5 flex flex-col gap-1.5">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                          Otoyol & Köprü Vergi Payı
+                        </span>
+                        <div className="flex justify-between items-end mt-1">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-zinc-500">KDV (%20) Dahil Toplam</span>
+                            <span className="text-xs font-bold font-mono text-zinc-200">{result.totalToll.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</span>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-zinc-500">Ödenen Net KDV</span>
+                            <span className="text-xs font-bold font-mono text-cyan-400">+{taxes.tollKdv.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</span>
+                          </div>
+                        </div>
+                        <p className="text-[9px] text-zinc-500 border-t border-white/5 pt-1.5 mt-1">
+                          KGM ve Yap-İşlet-Devret otoyolları ile tüm köprü geçiş ücretlerine standart %20 KDV dahildir.
+                        </p>
+                      </div>
+
+                      {/* Fuel Tax Details */}
+                      <div className="p-3 bg-[#1a1a1a]/40 rounded-xl border border-white/5 flex flex-col gap-1.5">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                          {isElectric ? <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> : <Flame className="w-3.5 h-3.5 text-red-400" />}
+                          {isElectric ? 'Şarj / Elektrik Vergi Payı' : 'Akaryakıt Vergi Payı'}
+                        </span>
+                        <div className="flex justify-between items-end mt-1">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-zinc-500">Tüm Vergiler Dahil Toplam</span>
+                            <span className="text-xs font-bold font-mono text-zinc-200">{getFuelCost().toLocaleString("tr-TR")} TL</span>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] text-zinc-500">ÖTV + KDV Toplamı</span>
+                            <span className="text-xs font-bold font-mono text-red-400">+{taxes.totalFuelTax.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-[9px] text-zinc-500 border-t border-white/5 pt-1.5 mt-1 space-y-0.5">
+                          {isElectric ? (
+                            <>
+                              <p>⚡ KDV (%20): <span className="font-mono text-zinc-300">{taxes.fuelKdv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</span></p>
+                              <p>⚡ Enerji Fonu & Belediye Tüketim Vergisi (%5): <span className="font-mono text-zinc-300">{taxes.fuelOtv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</span></p>
+                            </>
+                          ) : (
+                            <>
+                              <p>⛽ KDV (%20): <span className="font-mono text-zinc-300">{taxes.fuelKdv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</span></p>
+                              <p>⛽ ÖTV (Litre başına sabit): <span className="font-mono text-zinc-300">{taxes.fuelOtv.toLocaleString("tr-TR", { maximumFractionDigits: 1 })} TL</span> <span className="text-[8px] text-zinc-600">({vehicleEngine.includes("dizel") ? '10.59' : '11.29'} TL/L)</span></p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* Toll Detail Breakdown Card */}
               <section className="bg-[#121212] rounded-2xl p-5 border border-white/5 flex flex-col gap-4">

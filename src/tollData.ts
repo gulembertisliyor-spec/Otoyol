@@ -43,7 +43,7 @@ export const BRIDGES_AND_TUNNELS: BridgeTunnelToll[] = [
     id: "osmangazi",
     name: "Osmangazi Köprüsü",
     midpoint: [40.7381, 29.5168],
-    rates: { 1: 555.00, 2: 885.00, 3: 1050.00, 4: 1395.00, 5: 1760.00, 6: 390.00 },
+    rates: { 1: 1170.00, 2: 1870.00, 3: 2215.00, 4: 2940.00, 5: 3715.00, 6: 820.00 },
     operator: "Özel",
     description: "İzmit Körfezi'ni Dilovası ile Altınova arasında bağlar. İstanbul - İzmir arası ulaşım süresini 1.5 saat kısaltır.",
     timeSavedMinutes: 90
@@ -52,7 +52,7 @@ export const BRIDGES_AND_TUNNELS: BridgeTunnelToll[] = [
     id: "yavuz_sultan_selim",
     name: "Yavuz Sultan Selim Köprüsü (3. Köprü)",
     midpoint: [41.2064, 29.1197],
-    rates: { 1: 70.00, 2: 95.00, 3: 175.00, 4: 445.00, 5: 555.00, 6: 50.00 },
+    rates: { 1: 110.00, 2: 145.00, 3: 250.00, 4: 640.00, 5: 795.00, 6: 78.00 },
     operator: "Özel",
     description: "İstanbul Boğazı'nın Karadeniz'e bakan kuzey tarafında yer alır. Özellikle ağır vasıtalar ve transit geçişler için zorunludur.",
     timeSavedMinutes: 45
@@ -61,7 +61,7 @@ export const BRIDGES_AND_TUNNELS: BridgeTunnelToll[] = [
     id: "canakkale_1915",
     name: "1915 Çanakkale Köprüsü",
     midpoint: [40.3278, 26.6389],
-    rates: { 1: 585.00, 2: 935.00, 3: 1110.00, 4: 1475.00, 5: 1860.00, 6: 145.00 },
+    rates: { 1: 820.00, 2: 1230.00, 3: 1845.00, 4: 2050.00, 5: 3835.00, 6: 205.00 },
     operator: "Özel",
     description: "Çanakkale Boğazı'nı Gelibolu ile Lapseki arasında bağlar. Ege ve Akdeniz'i Avrupa'ya bağlayan en önemli geçittir. Feribot kuyruklarını önler.",
     timeSavedMinutes: 60
@@ -71,7 +71,7 @@ export const BRIDGES_AND_TUNNELS: BridgeTunnelToll[] = [
     name: "Avrasya Tüneli",
     midpoint: [41.0022, 29.0091],
     // 156 TL gündüz tarifesi (05:00-23:59), gece %50 indirimli. Ortalama veya gündüz tarifesini baz alıyoruz.
-    rates: { 1: 156.00, 2: 234.00, 3: 0, 4: 0, 5: 0, 6: 62.00 },
+    rates: { 1: 156.00, 2: 234.00, 3: 0, 4: 0, 5: 0, 6: 60.80 },
     operator: "Özel",
     description: "Asya ve Avrupa yakalarını deniz tabanının altından karayolu ile bağlayan çift katlı tünel. Fatih ile Kadıköy arasını 5 dakikaya indirir. Ağır vasıtalara kapalıdır.",
     timeSavedMinutes: 40
